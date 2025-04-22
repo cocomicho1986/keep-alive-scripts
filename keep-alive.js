@@ -9,6 +9,7 @@ const APP_URLS = process.env.APP_URLS?.split(',') || ['https://moto-catalogo.onr
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 const PORT = process.env.PORT || 3000;
+const SELF_URL = process.env.SELF_URL || `http://localhost:${PORT}`; // URL propia
 
 // Directorio para los logs
 const LOG_DIR = path.join(process.cwd(), 'logs'); // Carpeta "logs" en el directorio actual
@@ -57,6 +58,18 @@ async function keepAlive(url, retries = 0) {
   }
 }
 
+// Función para mantener la propia aplicación activa
+async function selfKeepAlive() {
+  try {
+    const response = await axios.get(SELF_URL, { timeout: 5000 });
+    logMessage(`[SELF] Respuesta del servidor propio: ${response.status}`);
+  } catch (error) {
+    const errorMessage = `[SELF] Error al contactar al servidor propio: ${error.message}`;
+    logMessage(errorMessage);
+    await sendTelegramMessage(errorMessage);
+  }
+}
+
 // Configuración del servidor web con Express
 const app = express();
 
@@ -93,5 +106,11 @@ setInterval(() => {
   APP_URLS.forEach((url) => keepAlive(url));
 }, 5 * 60 * 1000);
 
+// Mantener la propia aplicación activa
+setInterval(() => {
+  selfKeepAlive();
+}, 3 * 60 * 1000); // Cada 3 minutos
+
 // Ejecutar inmediatamente al iniciar
 APP_URLS.forEach((url) => keepAlive(url));
+selfKeepAlive(); // Llamada inicial a sí misma
